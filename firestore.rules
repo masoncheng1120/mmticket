@@ -13,6 +13,15 @@ service cloud.firestore {
       return request.resource.data[field] == resource.data[field];
     }
 
+    function isRequestOwnerByIdOrEmail() {
+      return resource.data.ownerId == request.auth.uid
+        || (
+          request.auth.token.email != null
+          && resource.data.ownerEmail is string
+          && resource.data.ownerEmail == request.auth.token.email
+        );
+    }
+
     match /users/{userId} {
       allow create: if isUser(userId);
       allow read: if signedIn();
@@ -37,7 +46,7 @@ service cloud.firestore {
 
     match /requests/{requestId} {
       allow read: if signedIn()
-        && (resource.data.requesterId == request.auth.uid || resource.data.ownerId == request.auth.uid);
+        && (resource.data.requesterId == request.auth.uid || isRequestOwnerByIdOrEmail());
 
       allow create: if signedIn()
         && request.resource.data.requesterId == request.auth.uid
@@ -53,7 +62,7 @@ service cloud.firestore {
         && request.resource.data.showDetails == resource.data.showDetails
         && (
           (
-            resource.data.ownerId == request.auth.uid
+            isRequestOwnerByIdOrEmail()
             && resource.data.status == 'pending'
             && request.resource.data.status in ['accepted', 'rejected']
           )
