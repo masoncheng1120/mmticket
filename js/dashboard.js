@@ -224,11 +224,7 @@ nicknameForm.addEventListener("submit", async (event) => {
 });
 
 async function rejectOtherPendingRequests(ticketId, acceptedRequestId) {
-  const pendingQuery = query(
-    collection(db, "requests"),
-    where("ticketId", "==", ticketId),
-    where("status", "==", "pending")
-  );
+  const pendingQuery = query(collection(db, "requests"), where("ticketId", "==", ticketId));
 
   const snapshot = await getDocs(pendingQuery);
   const batch = writeBatch(db);
@@ -236,6 +232,9 @@ async function rejectOtherPendingRequests(ticketId, acceptedRequestId) {
 
   snapshot.forEach((docSnapshot) => {
     if (docSnapshot.id === acceptedRequestId) return;
+
+    const data = docSnapshot.data();
+    if (data.status !== "pending") return;
 
     batch.update(doc(db, "requests", docSnapshot.id), {
       status: "rejected",
@@ -250,17 +249,16 @@ async function rejectOtherPendingRequests(ticketId, acceptedRequestId) {
 }
 
 async function rejectAllPendingRequestsForTicket(ticketId) {
-  const pendingQuery = query(
-    collection(db, "requests"),
-    where("ticketId", "==", ticketId),
-    where("status", "==", "pending")
-  );
+  const pendingQuery = query(collection(db, "requests"), where("ticketId", "==", ticketId));
 
   const snapshot = await getDocs(pendingQuery);
   const batch = writeBatch(db);
   let updates = 0;
 
   snapshot.forEach((docSnapshot) => {
+    const data = docSnapshot.data();
+    if (data.status !== "pending") return;
+
     batch.update(doc(db, "requests", docSnapshot.id), {
       status: "rejected",
       updatedAt: serverTimestamp()
@@ -274,17 +272,14 @@ async function rejectAllPendingRequestsForTicket(ticketId) {
 }
 
 async function syncTicketStatusWithPendingRequests(ticketId) {
-  const pendingQuery = query(
-    collection(db, "requests"),
-    where("ticketId", "==", ticketId),
-    where("status", "==", "pending")
-  );
+  const pendingQuery = query(collection(db, "requests"), where("ticketId", "==", ticketId));
 
   const pendingSnapshot = await getDocs(pendingQuery);
   const ticketRef = doc(db, "tickets", ticketId);
+  const hasPending = pendingSnapshot.docs.some((docSnapshot) => docSnapshot.data().status === "pending");
 
   await updateDoc(ticketRef, {
-    status: pendingSnapshot.empty ? "available" : "requested",
+    status: hasPending ? "requested" : "available",
     updatedAt: serverTimestamp()
   });
 }
@@ -535,14 +530,12 @@ ticketForm.addEventListener("submit", async (event) => {
 
   onSnapshot(staleRequestedQuery, async (snapshot) => {
     for (const docSnapshot of snapshot.docs) {
-      const pendingQuery = query(
-        collection(db, "requests"),
-        where("ticketId", "==", docSnapshot.id),
-        where("status", "==", "pending")
-      );
+      const pendingQuery = query(collection(db, "requests"), where("ticketId", "==", docSnapshot.id));
 
       const pendingSnapshot = await getDocs(pendingQuery);
-      if (pendingSnapshot.empty) {
+      const hasPending = pendingSnapshot.docs.some((pendingDoc) => pendingDoc.data().status === "pending");
+
+      if (!hasPending) {
         await updateDoc(doc(db, "tickets", docSnapshot.id), {
           status: "available",
           updatedAt: serverTimestamp()

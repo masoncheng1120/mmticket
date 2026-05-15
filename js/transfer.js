@@ -72,26 +72,16 @@ function renderMyPending(items) {
 }
 
 async function hasExistingRequest(ticketId) {
-  const pendingQuery = query(
+  const requesterQuery = query(
     collection(db, "requests"),
-    where("ticketId", "==", ticketId),
-    where("requesterId", "==", currentUser.uid),
-    where("status", "==", "pending")
+    where("requesterId", "==", currentUser.uid)
   );
 
-  const acceptedQuery = query(
-    collection(db, "requests"),
-    where("ticketId", "==", ticketId),
-    where("requesterId", "==", currentUser.uid),
-    where("status", "==", "accepted")
-  );
-
-  const [pendingSnapshot, acceptedSnapshot] = await Promise.all([
-    getDocs(pendingQuery),
-    getDocs(acceptedQuery)
-  ]);
-
-  return !pendingSnapshot.empty || !acceptedSnapshot.empty;
+  const snapshot = await getDocs(requesterQuery);
+  return snapshot.docs.some((docSnapshot) => {
+    const data = docSnapshot.data();
+    return data.ticketId === ticketId && (data.status === "pending" || data.status === "accepted");
+  });
 }
 
 async function requestTransfer(ticketId, button) {
@@ -154,15 +144,21 @@ function bindRealtimeListeners() {
 
   const myPendingQuery = query(
     collection(db, "requests"),
-    where("requesterId", "==", currentUser.uid),
-    where("status", "==", "pending")
+    where("requesterId", "==", currentUser.uid)
   );
 
   onSnapshot(myPendingQuery, (snapshot) => {
-    const items = snapshot.docs.map((docSnapshot) => ({
-      id: docSnapshot.id,
-      ...docSnapshot.data()
-    }));
+    const items = snapshot.docs
+      .map((docSnapshot) => ({
+        id: docSnapshot.id,
+        ...docSnapshot.data()
+      }))
+      .filter((item) => item.status === "pending")
+      .sort((a, b) => {
+        const aTime = a.createdAt?.seconds || 0;
+        const bTime = b.createdAt?.seconds || 0;
+        return bTime - aTime;
+      });
 
     renderMyPending(items);
   });
