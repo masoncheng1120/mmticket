@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ticket Transfer System - Marketplace</title>
+    <title>Magical Mirai 換飛平台 - Marketplace</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -15,7 +15,7 @@
   <body>
     <header class="app-header">
       <div>
-        <p class="eyebrow">Ticket Transfer System</p>
+        <p class="eyebrow">Magical Mirai 換飛平台</p>
         <h1>Marketplace</h1>
       </div>
       <div class="header-actions">
@@ -27,15 +27,21 @@
     <main class="app-main">
       <section class="welcome-card">
         <h2>Available Tickets</h2>
-        <p>Request a transfer for tickets listed by other users.</p>
+        <p>Request transfer for tickets listed by other users.</p>
+        <div class="status-legend" aria-label="Request status legend">
+          <span class="badge available">available</span>
+          <span class="badge requested">pending request</span>
+        </div>
       </section>
 
       <section class="card">
+        <p class="section-note">Only tickets currently open for transfer are shown here.</p>
         <div id="marketplaceGrid" class="market-grid"></div>
       </section>
 
       <section class="card">
         <h3>My Pending Requests</h3>
+        <p class="section-note">Track requests waiting for ticket owner approval.</p>
         <ul id="myPendingRequests" class="list"></ul>
       </section>
     </main>

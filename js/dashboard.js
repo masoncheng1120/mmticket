@@ -19,7 +19,6 @@ const showDetailsSelect = document.getElementById("showDetails");
 const ticketFormMessage = document.getElementById("ticketFormMessage");
 const myTicketsList = document.getElementById("myTicketsList");
 const incomingRequestsList = document.getElementById("incomingRequestsList");
-const incomingDebug = document.getElementById("incomingDebug");
 const receivedList = document.getElementById("receivedList");
 const welcomeTitle = document.getElementById("welcomeTitle");
 const nicknameForm = document.getElementById("nicknameForm");
@@ -51,16 +50,6 @@ function setNicknameMessage(text, type = "") {
   }
 }
 
-function setIncomingDebug(text, type = "") {
-  if (!incomingDebug) return;
-
-  incomingDebug.textContent = text;
-  incomingDebug.classList.remove("error", "success");
-  if (type) {
-    incomingDebug.classList.add(type);
-  }
-}
-
 function getDisplayName(profile = null) {
   const nickname = profile?.nickname?.trim();
   if (nickname) return nickname;
@@ -83,8 +72,6 @@ function isCurrentUserTicketOwner(ticketData = {}) {
 }
 
 function setIncomingPermissionMessage(error) {
-  setIncomingDebug(`incoming error: ${error?.code || "unknown"}`, "error");
-
   if (error?.code === "permission-denied") {
     incomingRequestsList.innerHTML = emptyStateHtml(
       "Permission denied while reading requests. Publish latest firestore.rules in Firebase Console."
@@ -114,7 +101,6 @@ function renderOwnedTicketsFromMaps() {
 
   renderMyTickets(items);
   syncIncomingRequestListeners(items.map((item) => item.id));
-  setIncomingDebug(`owned tickets: ${items.length} | active listeners: ${incomingRequestSubscriptions.size}`);
 }
 
 function renderIncomingFromMap() {
@@ -127,16 +113,10 @@ function renderIncomingFromMap() {
     });
 
   renderIncoming(items);
-  setIncomingDebug(
-    `pending requests: ${items.length} | tracked docs: ${incomingRequestMap.size} | active listeners: ${incomingRequestSubscriptions.size}`,
-    items.length > 0 ? "success" : ""
-  );
 }
 
 function syncIncomingRequestListeners(ticketIds) {
   const wantedTicketIds = new Set(ticketIds);
-
-  setIncomingDebug(`sync listeners for ${ticketIds.length} ticket(s)`);
 
   incomingRequestSubscriptions.forEach((subscription, ticketId) => {
     if (wantedTicketIds.has(ticketId)) return;
@@ -677,7 +657,6 @@ ticketForm.addEventListener("submit", async (event) => {
 });
 
 (async function init() {
-  setIncomingDebug("initializing incoming request listeners...");
   currentUser = await requireAuth();
   const profile = await getUserProfile(currentUser.uid);
   currentNickname = getDisplayName(profile);

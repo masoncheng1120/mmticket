@@ -23,8 +23,11 @@ body {
   margin: 0;
   font-family: "Manrope", sans-serif;
   color: var(--text);
-  background: linear-gradient(145deg, var(--bg-start), var(--bg-end));
+  background:
+    linear-gradient(rgba(12, 18, 32, 0.58), rgba(12, 18, 32, 0.44)),
+    url("https://magicalmirai.com/2026/images/og.jpg") center / cover no-repeat fixed;
   min-height: 100vh;
+  line-height: 1.5;
 }
 
 h1,
@@ -230,6 +233,11 @@ select:focus {
 .app-header h1 {
   margin: 4px 0 0;
   font-size: clamp(1.6rem, 2.2vw, 2.2rem);
+  color: #f3f7ff;
+}
+
+.app-header .eyebrow {
+  color: #d6e1ff;
 }
 
 .header-actions {
@@ -244,10 +252,11 @@ select:focus {
 
 .welcome-card,
 .card {
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.94);
   border: 1px solid rgba(217, 222, 234, 0.8);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  backdrop-filter: blur(4px);
 }
 
 .welcome-card {
@@ -275,6 +284,7 @@ select:focus {
   display: flex;
   gap: 10px;
   margin: 16px 0;
+  flex-wrap: wrap;
 }
 
 .tab-button {
@@ -325,7 +335,7 @@ select:focus {
 .stack-form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .list {
@@ -339,11 +349,11 @@ select:focus {
 .list li {
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px;
+  padding: 14px;
   background: #fff;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -399,6 +409,19 @@ select:focus {
 
 .muted {
   color: var(--muted);
+}
+
+.section-note {
+  margin: 6px 0 12px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.status-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 0;
 }
 
 .empty-state {

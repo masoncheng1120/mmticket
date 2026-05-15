@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ticket Transfer System - Dashboard</title>
+    <title>Magical Mirai 換飛平台 - Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -15,11 +15,11 @@
   <body>
     <header class="app-header">
       <div>
-        <p class="eyebrow">Ticket Transfer System</p>
-        <h1>Personal Dashboard</h1>
+        <p class="eyebrow">Magical Mirai 換飛平台</p>
+        <h1>Dashboard</h1>
       </div>
       <div class="header-actions">
-        <a class="btn btn-secondary" href="transfer.html">Open Marketplace</a>
+        <a class="btn btn-secondary" href="transfer.html">Go to Marketplace</a>
         <button id="logoutButton" class="btn btn-danger" type="button">Logout</button>
       </div>
     </header>
@@ -27,7 +27,12 @@
     <main class="app-main">
       <section class="welcome-card">
         <h2 id="welcomeTitle">Hello</h2>
-        <p>Manage your own listings and approve incoming transfer requests.</p>
+        <p>List tickets, track status, and handle transfer requests in one place.</p>
+        <div class="status-legend" aria-label="Ticket status legend">
+          <span class="badge available">available</span>
+          <span class="badge requested">requested</span>
+          <span class="badge occupied">occupied</span>
+        </div>
         <form id="nicknameForm" class="nickname-form">
           <label for="nicknameInput">Nickname</label>
           <div class="action-group">
@@ -44,14 +49,15 @@
       </section>
 
       <section class="tabs">
-        <button class="tab-button active" type="button" data-tab="listTicket">List a Ticket</button>
-        <button class="tab-button" type="button" data-tab="transactions">My Transactions</button>
+        <button class="tab-button active" type="button" data-tab="listTicket">My Tickets</button>
+        <button class="tab-button" type="button" data-tab="transactions">Transfer Requests</button>
       </section>
 
       <section id="listTicket" class="tab-panel active">
         <div class="panel-grid">
           <article class="card">
             <h3>List a Ticket</h3>
+            <p class="section-note">Choose a show and publish your ticket for transfer.</p>
             <form id="ticketForm" class="stack-form">
               <label for="showDetails">Select Show</label>
               <select id="showDetails" required>
@@ -82,6 +88,7 @@
 
           <article class="card">
             <h3>My Listed Tickets</h3>
+            <p class="section-note">Status updates automatically when requests arrive.</p>
             <ul id="myTicketsList" class="list"></ul>
           </article>
         </div>
@@ -91,12 +98,13 @@
         <div class="panel-grid">
           <article class="card">
             <h3>Tickets I Received</h3>
+            <p class="section-note">Accepted requests that were transferred to you.</p>
             <ul id="receivedList" class="list"></ul>
           </article>
 
           <article class="card">
             <h3>Pending Requests for My Tickets</h3>
-            <p id="incomingDebug" class="form-message" aria-live="polite"></p>
+            <p class="section-note">Review each request and choose Accept or Turn down.</p>
             <ul id="incomingRequestsList" class="list"></ul>
           </article>
         </div>
