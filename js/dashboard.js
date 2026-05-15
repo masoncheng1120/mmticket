@@ -445,29 +445,43 @@ function bindRealtimeListeners() {
 
   const incomingQuery = query(
     collection(db, "requests"),
-    where("ownerId", "==", currentUser.uid),
-    where("status", "==", "pending")
+    where("ownerId", "==", currentUser.uid)
   );
 
   onSnapshot(incomingQuery, (snapshot) => {
-    const items = snapshot.docs.map((docSnapshot) => ({
-      id: docSnapshot.id,
-      ...docSnapshot.data()
-    }));
+    const items = snapshot.docs
+      .map((docSnapshot) => ({
+        id: docSnapshot.id,
+        ...docSnapshot.data()
+      }))
+      .filter((item) => item.status === "pending")
+      .sort((a, b) => {
+        const aTime = a.createdAt?.seconds || 0;
+        const bTime = b.createdAt?.seconds || 0;
+        return bTime - aTime;
+      });
+
     renderIncoming(items);
   });
 
   const receivedQuery = query(
     collection(db, "requests"),
-    where("requesterId", "==", currentUser.uid),
-    where("status", "==", "accepted")
+    where("requesterId", "==", currentUser.uid)
   );
 
   onSnapshot(receivedQuery, (snapshot) => {
-    const items = snapshot.docs.map((docSnapshot) => ({
-      id: docSnapshot.id,
-      ...docSnapshot.data()
-    }));
+    const items = snapshot.docs
+      .map((docSnapshot) => ({
+        id: docSnapshot.id,
+        ...docSnapshot.data()
+      }))
+      .filter((item) => item.status === "accepted")
+      .sort((a, b) => {
+        const aTime = a.updatedAt?.seconds || 0;
+        const bTime = b.updatedAt?.seconds || 0;
+        return bTime - aTime;
+      });
+
     renderReceived(items);
   });
 }
