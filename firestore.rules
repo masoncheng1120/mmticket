@@ -13,6 +13,15 @@ service cloud.firestore {
       return request.resource.data[field] == resource.data[field];
     }
 
+    function isTicketOwnerByIdOrEmail(ticketData) {
+      return ticketData.ownerId == request.auth.uid
+        || (
+          request.auth.token.email != null
+          && ticketData.ownerEmail is string
+          && ticketData.ownerEmail == request.auth.token.email
+        );
+    }
+
     function isRequestOwnerByIdOrEmail() {
       return resource.data.ownerId == request.auth.uid
         || (
@@ -25,7 +34,9 @@ service cloud.firestore {
     function isRequestOwnerByTicket() {
       return resource.data.ticketId is string
         && exists(/databases/$(database)/documents/tickets/$(resource.data.ticketId))
-        && get(/databases/$(database)/documents/tickets/$(resource.data.ticketId)).data.ownerId == request.auth.uid;
+        && isTicketOwnerByIdOrEmail(
+          get(/databases/$(database)/documents/tickets/$(resource.data.ticketId)).data
+        );
     }
 
     function isRequestOwner() {
@@ -47,11 +58,11 @@ service cloud.firestore {
         && request.resource.data.showDetails is string;
 
       allow update: if signedIn()
-        && resource.data.ownerId == request.auth.uid
+        && isTicketOwnerByIdOrEmail(resource.data)
         && requestUnchanged('ownerId')
         && requestUnchanged('showDetails');
 
-      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+      allow delete: if signedIn() && isTicketOwnerByIdOrEmail(resource.data);
     }
 
     match /requests/{requestId} {

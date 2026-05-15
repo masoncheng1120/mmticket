@@ -98,7 +98,7 @@ async function requestTransfer(ticketId, button) {
 
     const ticketData = ticketDoc.data();
 
-    if (ticketData.ownerId === currentUser.uid) {
+    if (ticketData.ownerId === currentUser.uid || ticketData.ownerEmail === currentUser.email) {
       throw new Error("You cannot request your own ticket.");
     }
 
@@ -111,7 +111,7 @@ async function requestTransfer(ticketId, button) {
       requesterId: currentUser.uid,
       requesterEmail: currentUser.email || "",
       requesterName: currentNickname || currentUser.email || "User",
-      ownerId: ticketData.ownerId,
+      ownerId: ticketData.ownerId || "",
       ownerEmail: ticketData.ownerEmail || "",
       ownerName: ticketData.ownerName || ticketData.ownerEmail || "Unknown",
       showDetails: ticketData.showDetails,
@@ -120,10 +120,14 @@ async function requestTransfer(ticketId, button) {
       updatedAt: serverTimestamp()
     });
 
-    await updateDoc(doc(db, "tickets", ticketId), {
-      status: "requested",
-      updatedAt: serverTimestamp()
-    });
+    try {
+      await updateDoc(doc(db, "tickets", ticketId), {
+        status: "requested",
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      // Request ownership workflow still works even if requester cannot write ticket status.
+    }
   } catch (error) {
     alert(error.message || "Could not send transfer request.");
   } finally {
@@ -137,7 +141,7 @@ function bindRealtimeListeners() {
   onSnapshot(marketQuery, (snapshot) => {
     const items = snapshot.docs
       .map((docSnapshot) => ({ id: docSnapshot.id, ...docSnapshot.data() }))
-      .filter((item) => item.ownerId !== currentUser.uid);
+      .filter((item) => item.ownerId !== currentUser.uid && item.ownerEmail !== currentUser.email);
 
     renderMarket(items);
   });
