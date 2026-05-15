@@ -31,6 +31,8 @@ let currentUser = null;
 let currentNickname = "";
 const incomingRequestMap = new Map();
 const incomingRequestSubscriptions = new Map();
+const myTicketsByIdMap = new Map();
+const myTicketsByEmailMap = new Map();
 
 function setFormMessage(text, type = "") {
   ticketFormMessage.textContent = text;
@@ -60,6 +62,45 @@ function isCurrentUserRequestOwner(requestData = {}) {
   if (requestData.ownerId && requestData.ownerId === currentUser.uid) return true;
   if (currentUser.email && requestData.ownerEmail && requestData.ownerEmail === currentUser.email) return true;
   return false;
+}
+
+function isCurrentUserTicketOwner(ticketData = {}) {
+  if (!currentUser) return false;
+  if (ticketData.ownerId && ticketData.ownerId === currentUser.uid) return true;
+  if (currentUser.email && ticketData.ownerEmail && ticketData.ownerEmail === currentUser.email) return true;
+  return false;
+}
+
+function setIncomingPermissionMessage(error) {
+  if (error?.code === "permission-denied") {
+    incomingRequestsList.innerHTML = emptyStateHtml(
+      "Permission denied while reading requests. Publish latest firestore.rules in Firebase Console."
+    );
+    return;
+  }
+
+  incomingRequestsList.innerHTML = emptyStateHtml(error?.message || "Unable to load incoming requests.");
+}
+
+function replaceTicketMapFromSnapshot(targetMap, snapshot) {
+  targetMap.clear();
+  snapshot.docs.forEach((docSnapshot) => {
+    targetMap.set(docSnapshot.id, { id: docSnapshot.id, ...docSnapshot.data() });
+  });
+}
+
+function renderOwnedTicketsFromMaps() {
+  const combinedMap = new Map([...myTicketsByIdMap, ...myTicketsByEmailMap]);
+  const items = Array.from(combinedMap.values())
+    .filter((item) => isCurrentUserTicketOwner(item))
+    .sort((a, b) => {
+      const aTime = a.createdAt?.seconds || 0;
+      const bTime = b.createdAt?.seconds || 0;
+      return bTime - aTime;
+    });
+
+  renderMyTickets(items);
+  syncIncomingRequestListeners(items.map((item) => item.id));
 }
 
 function renderIncomingFromMap() {
@@ -111,7 +152,7 @@ function syncIncomingRequestListeners(ticketIds) {
         renderIncomingFromMap();
       },
       (error) => {
-        incomingRequestsList.innerHTML = emptyStateHtml(error.message || "Unable to load incoming requests.");
+        setIncomingPermissionMessage(error);
       }
     );
 
@@ -378,7 +419,7 @@ async function acceptRequest(requestId, button) {
       }
 
       const ticketData = ticketSnapshot.data();
-      if (ticketData.ownerId !== currentUser.uid) {
+      if (!isCurrentUserTicketOwner(ticketData)) {
         throw new Error("You are not the owner of this ticket.");
       }
 
@@ -433,7 +474,7 @@ async function turnDownRequest(requestId, button) {
       }
 
       const ticketData = ticketSnapshot.data();
-      if (ticketData.ownerId !== currentUser.uid) {
+      if (!isCurrentUserTicketOwner(ticketData)) {
         throw new Error("You are not the owner of this ticket.");
       }
 
@@ -470,7 +511,7 @@ async function deleteTicket(ticketId, button) {
       }
 
       const ticketData = ticketSnapshot.data();
-      if (ticketData.ownerId !== currentUser.uid) {
+      if (!isCurrentUserTicketOwner(ticketData)) {
         throw new Error("You can only delete tickets you created.");
       }
 
@@ -500,18 +541,31 @@ function activateTabs() {
 
 function bindRealtimeListeners() {
   const myTicketsQuery = query(collection(db, "tickets"), where("ownerId", "==", currentUser.uid));
-  onSnapshot(myTicketsQuery, (snapshot) => {
-    const items = snapshot.docs
-      .map((docSnapshot) => ({ id: docSnapshot.id, ...docSnapshot.data() }))
-      .sort((a, b) => {
-        const aTime = a.createdAt?.seconds || 0;
-        const bTime = b.createdAt?.seconds || 0;
-        return bTime - aTime;
-      });
+  onSnapshot(
+    myTicketsQuery,
+    (snapshot) => {
+      replaceTicketMapFromSnapshot(myTicketsByIdMap, snapshot);
+      renderOwnedTicketsFromMaps();
+    },
+    (error) => {
+      setFormMessage(error.message || "Unable to load your tickets.", "error");
+    }
+  );
 
-    renderMyTickets(items);
-    syncIncomingRequestListeners(items.map((item) => item.id));
-  });
+  if (currentUser.email) {
+    const myTicketsByEmailQuery = query(collection(db, "tickets"), where("ownerEmail", "==", currentUser.email));
+
+    onSnapshot(
+      myTicketsByEmailQuery,
+      (snapshot) => {
+        replaceTicketMapFromSnapshot(myTicketsByEmailMap, snapshot);
+        renderOwnedTicketsFromMaps();
+      },
+      () => {
+        // ownerId-based stream remains primary.
+      }
+    );
+  }
 
   const receivedQuery = query(
     collection(db, "requests"),
@@ -583,18 +637,22 @@ ticketForm.addEventListener("submit", async (event) => {
   );
 
   onSnapshot(staleRequestedQuery, async (snapshot) => {
-    for (const docSnapshot of snapshot.docs) {
-      const pendingQuery = query(collection(db, "requests"), where("ticketId", "==", docSnapshot.id));
+    try {
+      for (const docSnapshot of snapshot.docs) {
+        const pendingQuery = query(collection(db, "requests"), where("ticketId", "==", docSnapshot.id));
 
-      const pendingSnapshot = await getDocs(pendingQuery);
-      const hasPending = pendingSnapshot.docs.some((pendingDoc) => pendingDoc.data().status === "pending");
+        const pendingSnapshot = await getDocs(pendingQuery);
+        const hasPending = pendingSnapshot.docs.some((pendingDoc) => pendingDoc.data().status === "pending");
 
-      if (!hasPending) {
-        await updateDoc(doc(db, "tickets", docSnapshot.id), {
-          status: "available",
-          updatedAt: serverTimestamp()
-        });
+        if (!hasPending) {
+          await updateDoc(doc(db, "tickets", docSnapshot.id), {
+            status: "available",
+            updatedAt: serverTimestamp()
+          });
+        }
       }
+    } catch (error) {
+      setFormMessage(error.message || "Unable to normalize ticket statuses.", "error");
     }
   });
 })();
