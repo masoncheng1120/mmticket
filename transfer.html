@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ticket Transfer System - Marketplace</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Ticket Transfer System</p>
+        <h1>Marketplace</h1>
+      </div>
+      <div class="header-actions">
+        <a class="btn btn-secondary" href="dashboard.html">Back to Dashboard</a>
+        <button id="logoutButton" class="btn btn-danger" type="button">Logout</button>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <section class="welcome-card">
+        <h2>Available Tickets</h2>
+        <p>Request a transfer for tickets listed by other users.</p>
+      </section>
+
+      <section class="card">
+        <div id="marketplaceGrid" class="market-grid"></div>
+      </section>
+
+      <section class="card">
+        <h3>My Pending Requests</h3>
+        <ul id="myPendingRequests" class="list"></ul>
+      </section>
+    </main>
+
+    <script type="module" src="js/transfer.js"></script>
+  </body>
+</html>

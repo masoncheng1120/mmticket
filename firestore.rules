@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function requestUnchanged(field) {
+      return request.resource.data[field] == resource.data[field];
+    }
+
+    match /users/{userId} {
+      allow create: if isUser(userId);
+      allow read: if signedIn();
+      allow update, delete: if isUser(userId);
+    }
+
+    match /tickets/{ticketId} {
+      allow read: if signedIn();
+
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.status in ['available', 'requested', 'occupied']
+        && request.resource.data.showDetails is string;
+
+      allow update: if signedIn()
+        && resource.data.ownerId == request.auth.uid
+        && requestUnchanged('ownerId')
+        && requestUnchanged('showDetails');
+
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /requests/{requestId} {
+      allow read: if signedIn()
+        && (resource.data.requesterId == request.auth.uid || resource.data.ownerId == request.auth.uid);
+
+      allow create: if signedIn()
+        && request.resource.data.requesterId == request.auth.uid
+        && request.resource.data.ownerId != request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.ticketId is string
+        && request.resource.data.showDetails is string;
+
+      allow update: if signedIn()
+        && request.resource.data.ticketId == resource.data.ticketId
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.requesterId == resource.data.requesterId
+        && request.resource.data.showDetails == resource.data.showDetails
+        && (
+          (
+            resource.data.ownerId == request.auth.uid
+            && resource.data.status == 'pending'
+            && request.resource.data.status in ['accepted', 'rejected']
+          )
+          ||
+          (
+            resource.data.requesterId == request.auth.uid
+            && resource.data.status == 'pending'
+            && request.resource.data.status == 'rejected'
+          )
+        );
+
+      allow delete: if false;
+    }
+  }
+}
