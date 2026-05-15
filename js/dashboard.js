@@ -30,6 +30,7 @@ const tabPanels = document.querySelectorAll(".tab-panel");
 let currentUser = null;
 let currentNickname = "";
 const incomingRequestMap = new Map();
+const incomingRequestSubscriptions = new Map();
 
 function setFormMessage(text, type = "") {
   ticketFormMessage.textContent = text;
@@ -59,6 +60,68 @@ function isCurrentUserRequestOwner(requestData = {}) {
   if (requestData.ownerId && requestData.ownerId === currentUser.uid) return true;
   if (currentUser.email && requestData.ownerEmail && requestData.ownerEmail === currentUser.email) return true;
   return false;
+}
+
+function renderIncomingFromMap() {
+  const items = Array.from(incomingRequestMap.values())
+    .filter((item) => item.status === "pending")
+    .sort((a, b) => {
+      const aTime = a.createdAt?.seconds || 0;
+      const bTime = b.createdAt?.seconds || 0;
+      return bTime - aTime;
+    });
+
+  renderIncoming(items);
+}
+
+function syncIncomingRequestListeners(ticketIds) {
+  const wantedTicketIds = new Set(ticketIds);
+
+  incomingRequestSubscriptions.forEach((subscription, ticketId) => {
+    if (wantedTicketIds.has(ticketId)) return;
+
+    subscription.unsubscribe();
+    subscription.requestIds.forEach((requestId) => incomingRequestMap.delete(requestId));
+    incomingRequestSubscriptions.delete(ticketId);
+  });
+
+  ticketIds.forEach((ticketId) => {
+    if (incomingRequestSubscriptions.has(ticketId)) return;
+
+    const requestIds = new Set();
+    const requestQuery = query(collection(db, "requests"), where("ticketId", "==", ticketId));
+
+    const unsubscribe = onSnapshot(
+      requestQuery,
+      (snapshot) => {
+        requestIds.forEach((requestId) => incomingRequestMap.delete(requestId));
+        requestIds.clear();
+
+        snapshot.docs.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          if (data.status !== "pending") return;
+
+          requestIds.add(docSnapshot.id);
+          incomingRequestMap.set(docSnapshot.id, {
+            id: docSnapshot.id,
+            ...data
+          });
+        });
+
+        renderIncomingFromMap();
+      },
+      (error) => {
+        incomingRequestsList.innerHTML = emptyStateHtml(error.message || "Unable to load incoming requests.");
+      }
+    );
+
+    incomingRequestSubscriptions.set(ticketId, {
+      unsubscribe,
+      requestIds
+    });
+  });
+
+  renderIncomingFromMap();
 }
 
 function escapeHtml(value) {
@@ -304,10 +367,6 @@ async function acceptRequest(requestId, button) {
       }
 
       const requestData = requestSnapshot.data();
-      if (!isCurrentUserRequestOwner(requestData)) {
-        throw new Error("You are not authorized to accept this request.");
-      }
-
       if (requestData.status !== "pending") {
         throw new Error("This request is no longer pending.");
       }
@@ -363,12 +422,19 @@ async function turnDownRequest(requestId, button) {
       }
 
       const requestData = requestSnapshot.data();
-      if (!isCurrentUserRequestOwner(requestData)) {
-        throw new Error("You are not authorized to update this request.");
-      }
-
       if (requestData.status !== "pending") {
         throw new Error("This request is no longer pending.");
+      }
+
+      const ticketRef = doc(db, "tickets", requestData.ticketId);
+      const ticketSnapshot = await transaction.get(ticketRef);
+      if (!ticketSnapshot.exists()) {
+        throw new Error("Ticket no longer exists.");
+      }
+
+      const ticketData = ticketSnapshot.data();
+      if (ticketData.ownerId !== currentUser.uid) {
+        throw new Error("You are not the owner of this ticket.");
       }
 
       transaction.update(requestRef, {
@@ -444,59 +510,8 @@ function bindRealtimeListeners() {
       });
 
     renderMyTickets(items);
+    syncIncomingRequestListeners(items.map((item) => item.id));
   });
-
-  const updateIncomingFromSnapshot = (snapshot) => {
-    snapshot.docs.forEach((docSnapshot) => {
-      incomingRequestMap.set(docSnapshot.id, {
-        id: docSnapshot.id,
-        ...docSnapshot.data()
-      });
-    });
-
-    const items = Array.from(incomingRequestMap.values())
-      .filter((item) => item.status === "pending")
-      .filter((item) => isCurrentUserRequestOwner(item))
-      .sort((a, b) => {
-        const aTime = a.createdAt?.seconds || 0;
-        const bTime = b.createdAt?.seconds || 0;
-        return bTime - aTime;
-      });
-
-    renderIncoming(items);
-  };
-
-  const incomingByOwnerIdQuery = query(
-    collection(db, "requests"),
-    where("ownerId", "==", currentUser.uid)
-  );
-
-  onSnapshot(
-    incomingByOwnerIdQuery,
-    (snapshot) => {
-      updateIncomingFromSnapshot(snapshot);
-    },
-    (error) => {
-      incomingRequestsList.innerHTML = emptyStateHtml(error.message || "Unable to load incoming requests.");
-    }
-  );
-
-  if (currentUser.email) {
-    const incomingByOwnerEmailQuery = query(
-      collection(db, "requests"),
-      where("ownerEmail", "==", currentUser.email)
-    );
-
-    onSnapshot(
-      incomingByOwnerEmailQuery,
-      (snapshot) => {
-        updateIncomingFromSnapshot(snapshot);
-      },
-      () => {
-        // ownerId-based stream remains the primary source if this fallback is denied.
-      }
-    );
-  }
 
   const receivedQuery = query(
     collection(db, "requests"),
