@@ -396,6 +396,28 @@ async function syncTicketStatusWithPendingRequests(ticketId) {
   });
 }
 
+async function syncOwnedTicketStatuses(ownedTickets) {
+  for (const ticket of ownedTickets) {
+    if (ticket.status === "occupied") {
+      continue;
+    }
+
+    const pendingQuery = query(collection(db, "requests"), where("ticketId", "==", ticket.id));
+    const pendingSnapshot = await getDocs(pendingQuery);
+    const hasPending = pendingSnapshot.docs.some((docSnapshot) => docSnapshot.data().status === "pending");
+    const expectedStatus = hasPending ? "requested" : "available";
+
+    if (ticket.status === expectedStatus) {
+      continue;
+    }
+
+    await updateDoc(doc(db, "tickets", ticket.id), {
+      status: expectedStatus,
+      updatedAt: serverTimestamp()
+    });
+  }
+}
+
 async function acceptRequest(requestId, button) {
   button.disabled = true;
   const requestRef = doc(db, "requests", requestId);
@@ -543,9 +565,17 @@ function bindRealtimeListeners() {
   const myTicketsQuery = query(collection(db, "tickets"), where("ownerId", "==", currentUser.uid));
   onSnapshot(
     myTicketsQuery,
-    (snapshot) => {
+    async (snapshot) => {
       replaceTicketMapFromSnapshot(myTicketsByIdMap, snapshot);
       renderOwnedTicketsFromMaps();
+
+      try {
+        const combinedMap = new Map([...myTicketsByIdMap, ...myTicketsByEmailMap]);
+        const ownedTickets = Array.from(combinedMap.values()).filter((item) => isCurrentUserTicketOwner(item));
+        await syncOwnedTicketStatuses(ownedTickets);
+      } catch (error) {
+        setFormMessage(error.message || "Unable to sync ticket statuses.", "error");
+      }
     },
     (error) => {
       setFormMessage(error.message || "Unable to load your tickets.", "error");
@@ -557,9 +587,17 @@ function bindRealtimeListeners() {
 
     onSnapshot(
       myTicketsByEmailQuery,
-      (snapshot) => {
+      async (snapshot) => {
         replaceTicketMapFromSnapshot(myTicketsByEmailMap, snapshot);
         renderOwnedTicketsFromMaps();
+
+        try {
+          const combinedMap = new Map([...myTicketsByIdMap, ...myTicketsByEmailMap]);
+          const ownedTickets = Array.from(combinedMap.values()).filter((item) => isCurrentUserTicketOwner(item));
+          await syncOwnedTicketStatuses(ownedTickets);
+        } catch (error) {
+          setFormMessage(error.message || "Unable to sync ticket statuses.", "error");
+        }
       },
       () => {
         // ownerId-based stream remains primary.
